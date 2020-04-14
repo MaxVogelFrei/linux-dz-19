@@ -1,0 +1,123 @@
+---
+  - hosts: ovpn1
+    become: true
+    tasks:
+      - name: enable forward
+        sysctl:
+          name: net.ipv4.ip_forward
+          value: '1'
+          sysctl_set: yes
+          state: present
+          reload: yes
+
+      - name: install epel
+        yum:
+          name: epel-release
+          state: present
+
+      - name: install ovpn
+        yum:
+          name: openvpn
+          state: present
+
+      - name: install iperf3
+        yum:
+          name: iperf3
+          state: present
+
+      - name: server conf
+        copy:
+          src: ovpn_conf/server/server.conf
+          dest: /etc/openvpn/server.conf
+          owner: root
+          group: root
+          mode: 0644
+        when: is_server is defined
+
+      - name: iperf3 unit
+        copy:
+          src: ovpn_conf/server/iperfd.service
+          dest: /etc/systemd/system/iperfd.service
+          owner: root
+          group: root
+          mode: 0644
+        when: is_server is defined
+
+      - name: client conf
+        copy:
+          src: ovpn_conf/client/server.conf
+          dest: /etc/openvpn/server.conf
+          owner: root
+          group: root
+          mode: 0644
+        when: is_client is defined
+
+      - name: key
+        copy:
+          src: ovpn_conf/server/static.key
+          dest: /etc/openvpn/static.key
+          owner: root
+          group: root
+          mode: 0644
+
+      - name: restart openvpn
+        systemd:
+          state: restarted
+          name: openvpn@server
+          enabled: yes
+
+      - name: restart iperf
+        systemd:
+          state: started
+          name: iperfd
+          enabled: yes
+          daemon_reload: yes
+        when: is_server is defined
+
+  - hosts: ovpn2
+    become: true
+    tasks:
+      - name: enable forward
+        sysctl:
+          name: net.ipv4.ip_forward
+          value: '1'
+          sysctl_set: yes
+          state: present
+          reload: yes
+
+      - name: install epel
+        yum:
+          name: epel-release
+          state: present
+
+      - name: install ovpn
+        yum:
+          name: openvpn
+          state: present
+
+      - name: install policycoreutils-python
+        yum:
+          name: policycoreutils-python
+          state: present
+
+      - seport:
+          ports: 1207
+          proto: udp
+          setype: openvpn_port_t
+          state: present
+
+      - name: server conf
+        copy:
+          src: ovpn_conf/ras/
+          dest: /etc/openvpn/
+          owner: root
+          group: root
+          mode: 0600
+
+      - name: restart openvpn
+        systemd:
+          state: restarted
+          name: openvpn@server
+          enabled: yes
+
+
